@@ -271,7 +271,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
         <h2>Take a breather</h2>
         <button class="go" id="resume">Resume</button>
         <button class="btn2" id="leaveBtn" type="button" hidden>Leave match</button>
-        <p class="note">Resume locks the mouse again. Press M to mute the crowd.</p>
+        <p class="note" id="pauseHint" aria-live="polite">Resume locks the mouse again. Press M to mute the crowd.</p>
       </div>
       <div class="pnl" id="pauseCtl"></div>
     </div>
@@ -2249,24 +2249,44 @@ function frame(now) {
 // Pointer lock: browsers refuse a re-lock for about a second after Esc, so a failed request
 // just waits for the next click on the pitch instead of switching mouse-look off for good.
 let lockFails = 0, lockSkip = 0, lockHintT = 0;
+// A refused lock (browsers refuse for about a second after Esc) is never treated as permanent:
+// mouse-look only falls back to right-drag when this browser has no pointer lock at all.
 function requestLock() {
   if (coarse || noLock || locked) return;
-  const fail = () => { lockFails++; if (lockFails >= 4) noLock = true; else if (G.state !== 'menu' && performance.now() > lockHintT) { lockHintT = performance.now() + 2500; feed('Click the pitch to look around again'); } };
-  try { const r = canvas.requestPointerLock && canvas.requestPointerLock(); if (r && r.catch) r.catch(fail); } catch (e) { fail(); }
+  if (!canvas.requestPointerLock) { noLock = true; return; }
+  const fail = () => { lockFails++; lockRefused(); };
+  try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(fail); } catch (e) { fail(); }
+}
+function lockRefused() {
+  if (resumePending) { resumePending = false; $('#pauseHint').textContent = 'Your browser needs a moment before it hands the mouse back. Click Resume again.'; return; }
+  if (G.state !== 'menu' && performance.now() > lockHintT) { lockHintT = performance.now() + 2500; feed('Click the pitch to look around again'); }
 }
 function releaseLock() { wantLock = false; try { if (document.pointerLockElement) document.exitPointerLock(); } catch (e) {} }
 document.addEventListener('pointerlockchange', () => {
   const was = locked; locked = document.pointerLockElement === canvas;
-  if (locked) { lockFails = 0; lockSkip = 3; }
+  if (locked) { lockFails = 0; lockSkip = 3; if (resumePending) finishResume(); }
   if (was && !locked && wantLock && (G.state === 'play' || G.state === 'freeze' || G.state === 'goal')) pause();
 });
-document.addEventListener('pointerlockerror', () => { lockFails++; if (lockFails >= 4) noLock = true; });
+document.addEventListener('pointerlockerror', () => { lockFails++; lockRefused(); });
 function clearInput() { input.charge = null; input.keys = {}; input.joyX = input.joyY = 0; input.sprintToggle = false; input.burstT = 0; input.flickT = 0; }
-function pause() { if (G.online) { clearInput(); $('#leaveBtn').hidden = false; $('#pause').hidden = false; return; } if (G.paused) return; G.paused = true; clearInput(); $('#leaveBtn').hidden = true; $('#pause').hidden = false; }
+let resumePending = false;
+function pause() {
+  resumePending = false; $('#pauseHint').textContent = 'Resume locks the mouse again. Press M to mute the crowd.';
+  if (G.online) { clearInput(); $('#leaveBtn').hidden = false; $('#pause').hidden = false; return; }
+  if (G.paused) return; G.paused = true; clearInput(); $('#leaveBtn').hidden = true; $('#pause').hidden = false;
+}
+// Resume waits until the mouse is really captured, so the match never restarts with a dead camera.
 function resume() {
-  clearInput(); G.paused = false; $('#pause').hidden = true; wantLock = true;
-  last = performance.now(); camReady = false; prevYaw = yaw; yawRate = 0;
+  wantLock = true;
+  if (coarse || noLock || locked) { finishResume(); return; }
+  resumePending = true; $('#pauseHint').textContent = 'Capturing the mouse…';
   requestLock();
+  setTimeout(() => { if (resumePending && !locked) lockRefused(); }, 900);
+}
+function finishResume() {
+  resumePending = false;
+  clearInput(); G.paused = false; $('#pause').hidden = true;
+  last = performance.now(); camReady = false; prevYaw = yaw; yawRate = 0; lockSkip = 3;
 }
 const playing = () => G.state !== 'menu' && G.state !== 'half' && G.state !== 'full' && !G.paused;
 function startCharge(kind, k) { if (!playing() || input.charge) return; input.charge = { kind, power: 0, key: k }; }
