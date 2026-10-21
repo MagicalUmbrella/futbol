@@ -27,7 +27,9 @@ Empty slots are played by the computer.
 - PES / eFootball controls: gauge passing, through balls, one-twos, finesse, chip and low shots, dynamic first touch, flicks, nutmegs, double touch
 - Defending: pressure, containment, standing and sliding tackles, shoulder charges, team press
 - Rules: fouls, yellow cards, free kicks with walls, penalties, offside, corners, throw-ins, goal kicks
-- Formations, team playstyles, opposition levels and player stats
+- Formations, team playstyles, opposition levels (Amateur, Pro, World Class, Legend) and player stats
+- Smarter AI at higher levels: man-marking that stays goal-side, finishes placed away from the keeper, sharper passing, carriers who sprint into open space and heavier pressing
+- Goal replays: after every goal the last few seconds play back with broadcast cameras and slow motion (Space or click to skip)
 
 ## Controls
 
