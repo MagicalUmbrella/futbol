@@ -283,7 +283,7 @@ const PLAYER_MODEL = {"lod0":{"n":40589,"pos":"3OfVIJz/+ue4IJz/+ufVIIL/tOfVIAUA+
 (() => {
 'use strict';
 const $ = s => document.querySelector(s);
-const HL = 52.5, HW = 34, GW = 3.66, GH = 2.44, R = 0.11, ROLL = 2.6, GRAV = 9.81;
+const HL = 52.5, HW = 34, GW = 4.4, GH = 2.9, R = 0.15, ROLL = 2.6, GRAV = 9.81;  // goal 8.8 x 2.9 m, ball 30 cm
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
 const rnd = (a = 0, b = 1) => a + Math.random() * (b - a);
 const gauss = () => { let u = 0, v = 0; while (!u) u = Math.random(); while (!v) v = Math.random(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); };
@@ -499,7 +499,7 @@ const fillL = new THREE.DirectionalLight(0xdfe8ff, 0.55); fillL.position.set(40,
 // stands + crowd
 const crowd = { celebrate: 0, side: 0 };
 (() => {
-  const rows = 18, rowD = .9, rise = .5, concrete = new THREE.MeshLambertMaterial({ color: 0x2a3142 }), seats = [];
+  const rows = 30, rowD = .9, rise = .55, concrete = new THREE.MeshLambertMaterial({ color: 0x2a3142 }), seats = [];
   const homeCols = [0xc8262a, 0xb01e22, 0xe04038, 0xffffff, 0x8f1a1d], awayCols = [0xeef1f6, 0x1a2c5e, 0x2b4a8a, 0xdfe5ef], neutral = [0x2b2f3a, 0x4a4f5c, 0x6b5b4b, 0x8a8f99, 0x1f3a2a, 0x3b3f8a];
   const pick = a => a[(Math.random() * a.length) | 0];
   const side = (len, at, sign, axis, bias) => {
@@ -1439,7 +1439,7 @@ function buildWall(defTeam, x, z) {
   }
 }
 function restart(team, kind, x, z, o = {}) {
-  G.state = 'freeze'; G.freezeKind = 'restart';
+  G.state = 'freeze'; G.freezeKind = 'restart'; G.restartKind = kind;
   G.freezeT = kind === 'penalty' ? 2.6 : kind === 'freekick' ? 2.0 : 1.25;
   G.actAt = kind === 'penalty' ? 1.6 : kind === 'freekick' ? 1.5 : .9;
   resetBallFlags();
@@ -1485,6 +1485,17 @@ function restart(team, kind, x, z, o = {}) {
   banner(names[kind], sub, kind === 'penalty' ? 2.2 : 1.4, kind === 'penalty' || o.card ? '#f2b632' : undefined);
   if (kind !== 'freekick' && kind !== 'penalty') feed(`${names[kind]} · ${TEAMS[team].short}`);
   whistle(kind === 'penalty' ? 2 : 1);
+}
+// opponents must stand back from a set piece (9.15 m for free kicks and penalties) until it is taken
+function keepDistance() {
+  const tk = G.taker; if (!tk) return;
+  const k = G.restartKind, r = k === 'freekick' || k === 'penalty' || k === 'corner' ? 9.15 : 5;
+  for (const q of players) {
+    if (q.team === tk.team || q.role === 'GK') continue;
+    const dx = q.pos.x - ball.pos.x, dz = q.pos.z - ball.pos.z, d = Math.hypot(dx, dz);
+    if (d < r - .05) { const s = r / (d || 1); q.pos.x = ball.pos.x + (dx || .1) * s; q.pos.z = ball.pos.z + dz * s; q.vel.x *= .2; q.vel.z *= .2; }
+    q.chasing = false;
+  }
 }
 function endFreeze() { G.state = 'play'; if (G.freezeKind === 'kickoff') whistle(1); }
 function goalScored(team) {
@@ -1807,7 +1818,13 @@ function update(dt) {
   G.time += dt;
   if (G.state === 'menu' || G.state === 'half' || G.state === 'full') return;
   if (G.state === 'play') { G.clock += dt; if (G.clock >= G.halfLen) { endHalf(); return; } }
-  if (G.state === 'freeze') { G.freezeT -= dt; if (G.freezeT <= 0) endFreeze(); }
+  if (G.state === 'freeze') {
+    // your own set piece waits for you: play only restarts when you strike the ball
+    const yours = G.freezeKind === 'restart' && G.taker === human;
+    G.freezeT = Math.max(0, G.freezeT - dt);
+    if (!yours && G.freezeT <= 0) endFreeze();
+    if (G.freezeKind === 'restart') keepDistance();
+  }
   if (G.state === 'goal') { G.goalT -= dt; if (G.goalT <= 0) setupKickoff(G.conceded); }
   for (let t = 0; t < 2; t++) {
     const xs = players.filter(q => q.team !== t).map(q => q.pos.x * TEAMS[t].dir).sort((a, b) => b - a);
