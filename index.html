@@ -163,7 +163,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
   <canvas id="mini" class="hud" width="220" height="146" hidden></canvas>
   <div id="keys" class="hud" hidden>
     <div class="hd">ATTACK</div>
-    <div><b>HOLD CLICK</b>Shoot</div><div><b>C / Z + CLICK</b>Finesse / chip</div>
+    <div><b>HOLD CLICK</b>Shoot</div><div><b>C / Z + CLICK</b>Chip / curl</div>
     <div><b>HOLD E Q R</b>Pass · lob · through</div><div><b>Z + E</b>One-two</div><div><b>G</b>Send a run</div><div><b>TAB</b>Shoulder check</div>
     <div class="hd">DRIBBLE</div>
     <div><b>SHIFT ×2</b>Speed burst</div><div><b>HOLD C</b>Close control</div><div><b>V</b>Double touch · flick</div><div><b>C + SHIFT</b>Nutmeg</div>
@@ -187,8 +187,8 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
       <h3>Attack</h3>
       <dl>
         <dt>Hold click</dt><dd>Shot power gauge. Past the line and it can fly over.</dd>
-        <dt>C + shot</dt><dd>Controlled finesse shot that curls. Hold A or D to pick the bend.</dd>
-        <dt>Z + shot</dt><dd>Chip shot over a keeper who comes out</dd>
+        <dt>C + shot</dt><dd>Chip shot over a keeper who comes out</dd>
+        <dt>Z + shot</dt><dd>Curled finesse shot. Hold A or D to pick the bend.</dd>
         <dt>V + shot</dt><dd>Low shot: hold V as you release, driven along the grass</dd>
         <dt>Hold E</dt><dd>Ground pass. The gauge sets how far: a tap finds the nearest teammate you face.</dd>
         <dt>Hold Q</dt><dd>Lofted pass or cross · Z + Q for a low driven cross</dd>
@@ -259,7 +259,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
           <div id="openList"></div>
         </div>
         <p class="note" id="onlineNote"></p>
-        <p class="note" id="touchNote" hidden>Left stick moves, drag the right side to look. L1 and R2 are hold modifiers, just like on a pad: L1 + PASS is a one-two, R2 + SHOOT is a finesse shot, R2 + SPRINT is a nutmeg. SKILL does a double touch on the ball or a flick as it arrives.</p>
+        <p class="note" id="touchNote" hidden>Left stick moves, drag the right side to look. L1 and R2 are hold modifiers, just like on a pad: L1 + PASS is a one-two, R2 + SHOOT is a chip, L1 + SHOOT curls it, R2 + SPRINT is a nutmeg. SKILL does a double touch on the ball or a flick as it arrives.</p>
       </div>
       <div class="pnl" id="menuCtl"></div>
     </div>
@@ -1630,8 +1630,9 @@ function humanShoot(power) {
   const s = human.st, head = ball.pos.y > 1.2, z = modZ(), c = modC();
   const fx = Math.cos(yaw), fz = Math.sin(yaw);
   let sp, elev, err = .028 * clamp(1 - (s.fin - 40) / 70, .25, 1), curl = 0;
-  if (z) { sp = 8 + power * 10; elev = clamp(pitch + .62, .42, 1.05); err *= .6; feed('Chip shot'); }
-  else if (c) {
+  // C + shot = chip over the keeper, Z + shot = curled (finesse) shot
+  if (c) { sp = 8 + power * 10; elev = clamp(pitch + .62, .42, 1.05); err *= .6; feed('Chip shot'); }
+  else if (z) {
     sp = 13 + power * 13; elev = clamp(pitch + .07, .02, .7); err *= .55;
     let side = 0;
     if (input.keys.KeyA || input.joyX < -.4) side = -1; else if (input.keys.KeyD || input.joyX > .4) side = 1;
@@ -2210,7 +2211,7 @@ function drawHud(dt) {
   ui.meCond.style.width = (human.energy * 100).toFixed(0) + '%';
   const ch = input.charge;
   ui.pow.style.width = (ch ? ch.power * 100 : 0).toFixed(1) + '%';
-  ui.powLbl.textContent = !ch ? 'Power' : ch.kind === 'shot' ? (modZ() ? 'Chip' : modC() ? 'Finesse' : 'Shot power') : ch.kind === 'low' ? (modZ() ? 'One-two' : 'Pass') : ch.kind === 'lofted' ? (modZ() ? 'Low cross' : 'Lofted') : (modZ() ? 'Chip through' : 'Through');
+  ui.powLbl.textContent = !ch ? 'Power' : ch.kind === 'shot' ? (modC() ? 'Chip' : modZ() ? 'Curl' : 'Shot power') : ch.kind === 'low' ? (modZ() ? 'One-two' : 'Pass') : ch.kind === 'lofted' ? (modZ() ? 'Low cross' : 'Lofted') : (modZ() ? 'Chip through' : 'Through');
   const chips = [];
   if (ball.owner === human) { const ds = dribbleState(human); chips.push(ds === 'shield' ? 'Shielding' : ds === 'close' ? 'Close control' : ds === 'dash' ? 'Dash dribble' : 'On the ball'); }
   else if (ball.intended === human && !ball.owner) chips.push('Pass coming to you');

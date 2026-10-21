@@ -35,7 +35,7 @@ Empty slots are played by the computer.
 | --- | --- |
 | WASD / mouse | Move / look |
 | Shift | Sprint (twice for a speed burst) |
-| Hold click | Shoot (C = finesse, Z = chip, V = low shot) |
+| Hold click | Shoot (C = chip, Z = curl, V = low shot) |
 | Hold E / Q / R | Pass / lofted pass / through ball |
 | Z + E | One-two |
 | C | Close control, shield, dynamic first touch |
