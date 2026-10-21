@@ -416,9 +416,12 @@ function fitScale(ex, ey, d) {
   return lo;
 }
 let visionKey = 'natural', bobScale = 1, projKey = '';
+// Human eyes see much further below the line of sight than above it (about 70 degrees down, 50 up), so the
+// first-person view is lens-shifted: the crosshair sits above the screen centre and more of the ground shows.
+let vShift = 0;
 function computeProjection(extra, forceFlat) {
-  const asp = innerWidth / Math.max(1, innerHeight), mode = forceFlat ? VISION.flat : VISION[visionKey];
-  const k = `${visionKey}|${forceFlat}|${extra.toFixed(2)}|${asp.toFixed(3)}`; if (k === projKey) return; projKey = k;
+  const asp = innerWidth / Math.max(1, innerHeight), mode = forceFlat ? VISION.flat : VISION[visionKey], sh = forceFlat ? 0 : vShift;
+  const k = `${visionKey}|${forceFlat}|${extra.toFixed(2)}|${asp.toFixed(3)}|${sh.toFixed(2)}`; if (k === projKey) return; projKey = k;
   let h, v;
   if (!post.ok || mode.d === 0) { v = (mode.vfov || 72) * Math.PI / 180 + extra * .6 * Math.PI / 180; h = 2 * Math.atan(Math.tan(v / 2) * asp); }
   else { h = (mode.hfov + extra) * Math.PI / 180; v = 2 * Math.atan(Math.tan(h / 2) / asp); if (v > 1.75) { v = 1.75; h = 2 * Math.atan(Math.tan(v / 2) * asp); } }
@@ -427,6 +430,9 @@ function computeProjection(extra, forceFlat) {
     const ex = Math.tan(h / 2), ey = Math.tan(v / 2), d = post.ok ? mode.d : 0;
     post.u.ext.value.set(ex, ey); post.u.d.value = d; post.u.s.value = d ? fitScale(ex, ey, d) : 1; post.u.vig.value = mode.vig; post.u.blur.value = mode.blur;
   }
+  if (sh) { camera.projectionMatrix.elements[9] = -sh; camera.projectionMatrixInverse.copy(camera.projectionMatrix).invert(); }
+  const sc = post.ok ? post.u.s.value : 1, cr = document.getElementById('cross');
+  if (cr) cr.style.top = `${(50 - sh / sc * 50).toFixed(2)}%`;
 }
 const sRGB = t => { t.encoding = THREE.sRGBEncoding; return t; };
 
@@ -1939,7 +1945,7 @@ function update(dt) {
   }
   if (ball.owner) {
     const o = ball.owner, ds = dribbleState(o), thr = o === G.throwTaker;
-    const offD = thr ? .06 : o.role === 'GK' ? .38 : o.ctl ? (ds === 'close' || ds === 'shield' ? .48 : ds === 'dash' ? 1.05 + Math.abs(Math.sin(o.phase)) * .35 : .8) : (ds === 'dash' ? .95 : .62);
+    const offD = thr ? .06 : o.role === 'GK' ? .38 : o.ctl ? (ds === 'close' || ds === 'shield' ? .48 : ds === 'dash' ? 1.25 + Math.abs(Math.sin(o.phase)) * .35 : 1.05) : (ds === 'dash' ? .95 : .62);
     const tx = o.pos.x + o.fx * offD, tz = o.pos.z + o.fz * offD, ty = thr ? 2.08 : o.role === 'GK' ? 1.05 : R, k = 1 - Math.exp(-18 * dt);
     ball.pos.x += (tx - ball.pos.x) * k; ball.pos.z += (tz - ball.pos.z) * k; ball.pos.y += (ty - ball.pos.y) * k;
     ball.vel.set(o.vel.x, 0, o.vel.z);
@@ -2137,6 +2143,9 @@ function updateCamera(dt) {
   }
   const sprintOn = input.sprint || input.burstT > 0;
   G.fovExtra = (G.fovExtra || 0) + ((sprintOn ? 6 : 0) - (G.fovExtra || 0)) * (1 - Math.exp(-4 * dt));
+  // more ground in view, and more still while the ball is at your feet
+  const vsT = human && ball.owner === human ? .56 : .34;
+  vShift += (vsT - vShift) * (1 - Math.exp(-4 * dt)); vShift = Math.round(vShift * 100) / 100;
   computeProjection(G.fovExtra, false);
   const fx = Math.cos(yaw), fz = Math.sin(yaw), cp = Math.cos(pitch), spn = Math.sin(pitch);
   const hs = human.mesh.scale.y;
@@ -2553,7 +2562,7 @@ function applySnapshot(dt) {
   if (nv.distanceTo(ball.vel) > 6 && nv.length() > 7) sfxKick(Math.min(1, nv.length() / 30));
   ball.vel.copy(nv);
   if (ball.owner === human && !net.spec) {
-    ball.pos.set(me.pp.x + Math.cos(yaw) * .8, R, me.pp.z + Math.sin(yaw) * .8);
+    ball.pos.set(me.pp.x + Math.cos(yaw) * 1.05, R, me.pp.z + Math.sin(yaw) * 1.05);
   } else ball.pos.set((ba[0] + (bb[0] - ba[0]) * k) / 100, (ba[1] + (bb[1] - ba[1]) * k) / 100, (ba[2] + (bb[2] - ba[2]) * k) / 100);
   // events: banners, feed, whistles, crowd
   for (const ev of latest.e || []) {
