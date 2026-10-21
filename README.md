@@ -13,6 +13,13 @@ npx serve .
 
 Click **Kick off**, then click the pitch to lock the mouse. Esc pauses.
 
+## Online play
+
+Online matches use the claude.ai Artifact `room` capability, so they work when the game is opened as a claude.ai
+artifact shared with the other players (a standalone copy, such as GitHub Pages, plays single-player only).
+One person hosts and runs the match in their browser; others join with the match code and each takes over a player.
+Empty slots are played by the computer.
+
 ## Features
 
 - First-person view with a natural wide-angle projection, a stabilised head camera and your own body visible when you look down
