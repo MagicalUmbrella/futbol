@@ -15,10 +15,13 @@ Click **Kick off**, then click the pitch to lock the mouse. Esc pauses.
 
 ## Online play
 
-Online matches use the claude.ai Artifact `room` capability, so they work when the game is opened as a claude.ai
-artifact shared with the other players (a standalone copy, such as GitHub Pages, plays single-player only).
-One person hosts and runs the match in their browser; others join with the match code and each takes over a player.
-Empty slots are played by the computer.
+Play it at **https://magicalumbrella.github.io/futbol/**. One person presses **Host a match** and reads out the
+4-letter code at the top of the screen; friends type it in and press **Join**. Each takes over a player and the
+computer plays the empty slots.
+
+The host's browser runs the match. On GitHub Pages (or any other web host) the browsers connect directly over
+WebRTC; the free PeerJS broker only introduces them. A very strict work or school network can block that.
+Opened as a claude.ai artifact, the game uses the artifact `room` capability instead and also lists open matches.
 
 ## Features
 
@@ -29,6 +32,8 @@ Empty slots are played by the computer.
 - Rules: fouls, yellow cards, free kicks with walls, penalties, offside, corners, throw-ins, goal kicks
 - Formations, team playstyles, opposition levels (Amateur, Pro, World Class, Legend) and player stats
 - Smarter AI at higher levels: man-marking that stays goal-side, finishes placed away from the keeper, sharper passing, carriers who sprint into open space and heavier pressing
+- Keepers fly: full-length diving saves to the corners, catching or parrying, and penalty dives
+- Jump and head: Space jumps, and a ball at head height is headed where you look (hold click for a power header)
 - Goal replays: after every goal the last few seconds play back with broadcast cameras and slow motion (Space or click to skip)
 
 ## Controls
@@ -46,7 +51,8 @@ Empty slots are played by the computer.
 | C + F | Containment |
 | T | Team pressure |
 | G | Send a teammate on a run |
-| Space | Call for the ball |
+| Space | Jump · header |
+| Y | Call for the ball |
 | Tab | Shoulder check (quick scan behind you) |
 | Esc / M | Pause / mute |
 
