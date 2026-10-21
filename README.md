@@ -39,3 +39,18 @@ Click **Kick off**, then click the pitch to lock the mouse. Esc pauses.
 | G | Send a teammate on a run |
 | Space | Call for the ball |
 | Esc / M | Pause / mute |
+
+## Player model
+
+`models/matchday_player.glb` is the sculpted, rigged footballer used in the game (glTF 2.0, 16-bone skeleton,
+A-pose, kit and face textures). It opens in Blender, three.js or any glTF viewer.
+
+The model is generated from code in `tools/`: `sculpt.py` builds the body from anatomical volumes as a signed
+distance field and meshes it with marching cubes, and `build.py` adds hair, kit regions, UVs and skin weights, then
+writes the GLB and the compressed copy embedded in the game. Requires Python 3 with numpy, scikit-image and Pillow:
+
+```
+cd tools && python3 sculpt.py && python3 build.py
+```
+
+![Player model](models/player_preview.png)
