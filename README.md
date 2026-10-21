@@ -45,6 +45,7 @@ Empty slots are played by the computer.
 | T | Team pressure |
 | G | Send a teammate on a run |
 | Space | Call for the ball |
+| Tab | Shoulder check (quick scan behind you) |
 | Esc / M | Pause / mute |
 
 ## Player model

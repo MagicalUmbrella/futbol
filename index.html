@@ -164,7 +164,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
   <div id="keys" class="hud" hidden>
     <div class="hd">ATTACK</div>
     <div><b>HOLD CLICK</b>Shoot</div><div><b>C / Z + CLICK</b>Finesse / chip</div>
-    <div><b>HOLD E Q R</b>Pass · lob · through</div><div><b>Z + E</b>One-two</div><div><b>G</b>Send a run</div>
+    <div><b>HOLD E Q R</b>Pass · lob · through</div><div><b>Z + E</b>One-two</div><div><b>G</b>Send a run</div><div><b>TAB</b>Shoulder check</div>
     <div class="hd">DRIBBLE</div>
     <div><b>SHIFT ×2</b>Speed burst</div><div><b>HOLD C</b>Close control</div><div><b>V</b>Double touch · flick</div><div><b>C + SHIFT</b>Nutmeg</div>
     <div class="hd">DEFEND</div>
@@ -178,7 +178,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
       <button id="bZ">L1</button><button id="bC">R2</button><button id="bPress">PRESS</button><button id="bSlide">SLIDE</button>
       <button id="bLob">LOB</button><button id="bThru">THRU</button><button id="bRun">RUN</button><button id="bSpr">SPRINT</button>
       <button id="bCall">CALL</button><button id="bPass">PASS</button><button id="bShoot">SHOOT</button>
-      <button id="bSkill">SKILL</button>
+      <button id="bSkill">SKILL</button><button id="bScan">SCAN</button>
     </div>
   </div>
 
@@ -196,6 +196,7 @@ h3{margin:0;font-family:var(--display);font-weight:700;font-size:15px;letter-spa
         <dt>Z + E</dt><dd>One-two: the receiver plays it back into your run</dd>
         <dt>G</dt><dd>Send a teammate on a run along the defensive line</dd>
         <dt>Space</dt><dd>Call for the ball</dd>
+        <dt>Tab</dt><dd>Shoulder check: a half-second glance behind you and back, like elite players scan before receiving. Hold A or D to pick the side.</dd>
         <dt>Right-click</dt><dd>While charging: super cancel</dd>
       </dl>
       <h3>Dribble</h3>
@@ -1598,6 +1599,7 @@ function endHalf() {
     G.state = 'full'; $('#fullScore').textContent = `${TEAMS[0].short} ${G.score[0]} – ${G.score[1]} ${TEAMS[1].short}`;
     const [a, b] = G.score;
     $('#fullLine').textContent = a > b ? `Red River FC take the points against ${DIFF.label} opposition.` : a < b ? 'Harbour Athletic win it. Try another playstyle, or drop the opposition level.' : 'Honours even under the lights.';
+    if (scanCount) $('#fullLine').textContent += ` You made ${scanCount} shoulder checks, about ${(scanCount / Math.max(1, G.halfLen * 2 / 60)).toFixed(1)} a minute.`;
     fillStats($('#fullStats')); $('#full').hidden = false;
   }
   setHud(false);
@@ -2130,6 +2132,24 @@ function syncPeople(dt) {
 }
 let orbit = 0, camRoll = 0, camReady = false;
 const camPos = new THREE.Vector3(), headW = new THREE.Vector3(), lookV = new THREE.Vector3();
+// ---------- shoulder check (scanning) ----------
+// Elite players glance over their shoulder about three times in the ten seconds before receiving;
+// 90% of those glances last under 0.7 s. Tab does one: the head swings ~140 degrees and comes back.
+const SCAN_DUR = .62;
+let scanSide = 1, scanCount = 0;
+function shoulderCheck() {
+  if (!human || G.state === 'menu' || input.scanT > 0) return;
+  if (input.keys.KeyA || input.joyX < -.4) scanSide = -1;
+  else if (input.keys.KeyD || input.joyX > .4) scanSide = 1;
+  else scanSide = -scanSide;
+  input.scanT = SCAN_DUR; scanCount++;
+}
+function scanOffset(dt) {
+  if (!(input.scanT > 0)) return 0;
+  input.scanT = Math.max(0, input.scanT - dt);
+  const k = 1 - input.scanT / SCAN_DUR;
+  return scanSide * 2.45 * Math.pow(Math.sin(Math.PI * k), .55);
+}
 let prevYaw = 0, yawRate = 0, camBlend = 0;
 const _eyeDir = new THREE.Vector3(), _eyePt = new THREE.Vector3();
 function updateCamera(dt) {
@@ -2147,7 +2167,9 @@ function updateCamera(dt) {
   const vsT = human && ball.owner === human ? .56 : .34;
   vShift += (vsT - vShift) * (1 - Math.exp(-4 * dt)); vShift = Math.round(vShift * 100) / 100;
   computeProjection(G.fovExtra, false);
-  const fx = Math.cos(yaw), fz = Math.sin(yaw), cp = Math.cos(pitch), spn = Math.sin(pitch);
+  // a shoulder check turns only the head: your body, run and aim stay on `yaw`
+  const vy = yaw + scanOffset(dt);
+  const fx = Math.cos(vy), fz = Math.sin(vy), cp = Math.cos(pitch), spn = Math.sin(pitch);
   const hs = human.mesh.scale.y;
   // Stabilised gaze: like a real runner, the eyes only feel the pelvis bounce, not every hip twist and sway.
   const hipsDy = (human.rig.B.hips.position.y - .96) * hs;
@@ -2175,7 +2197,8 @@ function updateCamera(dt) {
   camera.lookAt(lookV); camera.rotateZ(camRoll);
   // anything of your own body closer than 14 cm along your view (head, hair, neck) is not drawn
   camera.getWorldDirection(_eyeDir); EYE_CLIP.setFromNormalAndCoplanarPoint(_eyeDir, _eyePt.copy(camPos).addScaledVector(_eyeDir, .14));
-  if (post.ok) post.u.hurt.value += ((human.fallT > 0 ? .7 : clamp((.28 - human.stamina) * 2.4, 0, .6)) - post.u.hurt.value) * (1 - Math.exp(-3 * dt));
+  // no 'tired tunnel vision': research finds peripheral awareness holds up (even improves) after hard efforts; only a fall darkens the view
+  if (post.ok) post.u.hurt.value += ((human.fallT > 0 ? .7 : 0) - post.u.hurt.value) * (1 - Math.exp(-3 * dt));
 }
 let lastClk = '', lastChips = '';
 function drawHud(dt) {
@@ -2192,6 +2215,7 @@ function drawHud(dt) {
   if (ball.owner === human) { const ds = dribbleState(human); chips.push(ds === 'shield' ? 'Shielding' : ds === 'close' ? 'Close control' : ds === 'dash' ? 'Dash dribble' : 'On the ball'); }
   else if (ball.intended === human && !ball.owner) chips.push('Pass coming to you');
   if (human.callT > 0) chips.push('Calling for it');
+  if (input.scanT > 0) chips.push('*Scanning');
   if (human.pressing) chips.push(human.jockeyT > 0 ? '*Containment' : '*Pressing');
   if (input.flickT > 0) chips.push('*Flick ready');
   if (MY.manualPass && input.charge && input.charge.kind !== 'shot') chips.push('Manual pass');
@@ -2268,7 +2292,7 @@ document.addEventListener('pointerlockchange', () => {
   if (was && !locked && wantLock && (G.state === 'play' || G.state === 'freeze' || G.state === 'goal')) pause();
 });
 document.addEventListener('pointerlockerror', () => { lockFails++; lockRefused(); });
-function clearInput() { input.charge = null; input.keys = {}; input.joyX = input.joyY = 0; input.sprintToggle = false; input.burstT = 0; input.flickT = 0; }
+function clearInput() { input.scanT = 0; input.charge = null; input.keys = {}; input.joyX = input.joyY = 0; input.sprintToggle = false; input.burstT = 0; input.flickT = 0; }
 let resumePending = false;
 function pause() {
   resumePending = false; $('#pauseHint').textContent = 'Resume locks the mouse again. Press M to mute the crowd.';
@@ -2330,6 +2354,7 @@ addEventListener('keydown', e => {
   if (e.code === 'KeyF' && dbl) standingTackle();
   if (e.code === 'KeyB') shoulderCharge();
   if (e.code === 'KeyG') callRun();
+  if (e.code === 'Tab') shoulderCheck();
   if (e.code === 'Space') humanCall();
   if (e.code === 'KeyX') cancelCharge();
   if (e.code === 'KeyM') { AU.muted = !AU.muted; if (AU.master) AU.master.gain.value = AU.muted ? 0 : .8; feed(AU.muted ? 'Sound off' : 'Sound on'); }
@@ -2370,7 +2395,7 @@ addEventListener('blur', () => { input.keys = {}; input.charge = null; });
   let lastP = 0;
   hold('#bPress', () => { input.tpress = true; const n = performance.now(); if (n - lastP < 270) standingTackle(); lastP = n; }, () => { input.tpress = false; });
   hold('#bSlide', () => { if (!cancelCharge()) slideTackle(); });
-  hold('#bRun', callRun); hold('#bCall', humanCall);
+  hold('#bRun', callRun); hold('#bCall', humanCall); hold('#bScan', shoulderCheck);
   hold('#bSkill', () => { input.tv = true; if (!input.charge) { if (ball.owner === human) doubleTouch(); else if (net.client) sendAct('flick'); else input.flickT = .45; } }, () => { input.tv = false; });
   let lastS = 0;
   $('#bSpr').addEventListener('pointerdown', e => { e.preventDefault(); const n = performance.now();
@@ -2783,7 +2808,7 @@ renderCard();
 
 function newMatch() {
   applySetup();
-  G.score = [0, 0]; G.clock = 0; G.half = 1; G.paused = false; G.stats = freshStats();
+  G.score = [0, 0]; G.clock = 0; G.half = 1; G.paused = false; G.stats = freshStats(); scanCount = 0;
   human.stamina = 1; human.energy = 1; ui.sc.textContent = '0 – 0'; ui.feed.innerHTML = '';
   setupKickoff(0);
   feed(`${TEAMS[1].short} line up ${G.form[1]} · ${G.style[1].label}`);
