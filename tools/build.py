@@ -64,7 +64,7 @@ def classify(p):
     part[(y <= .012)] = SOLE
     neck_r = np.hypot(x, z + .006)
     part[(y > 1.53) & (y <= 1.585)] = SKIN
-    part[(y > 1.508) & (y <= 1.535) & (neck_r > .054) & (neck_r < .08)] = TRIM               # collar ring
+    part[(y > 1.522) & (y <= 1.538) & (neck_r > .05) & (neck_r < .076)] = TRIM               # collar ring
     part[(y > 1.585)] = FACE
     # arms override
     arm = np.where(isarm)[0]
@@ -121,13 +121,16 @@ def hair_mesh(h=.006):
     X, Y, Z = np.meshgrid(xs, ys, zs, indexing='ij'); P = np.stack([X.ravel(), Y.ravel(), Z.ravel()], 1)
 
     def f(P):
-        shell = S.ellipsoid(P, np.array([0, 1.708, -.014]), np.array([.1, .124, .114]))
-        # hairline: high at the forehead, down to the nape at the back, above the ears at the sides
+        # the hair follows the actual skull: a 1.6 cm thick layer on top of the head surface,
+        # so no part of the scalp can poke through it
+        hd = S.head(P)
+        shell = hd - .016
+        inner = -(hd + .002)
+        # hairline: high at the forehead, down to the nape at the back, lifted clear of the ears at the sides
         fz = np.clip((P[:, 2] - -.06) / .14, 0, 1)
-        hl = 1.635 + fz * .1 + np.clip(np.abs(P[:, 0]) - .06, 0, None) * .5 * fz
+        hl = 1.635 + fz * .1 + np.clip(np.abs(P[:, 0]) - .05, 0, None) * 1.2
         cut = hl - P[:, 1]
-        inner = -S.ellipsoid(P, np.array([0, 1.7, -.01]), np.array([.088, .112, .1]))
-        return np.maximum(np.maximum(shell, cut), inner - .004)
+        return np.maximum(np.maximum(shell, cut), inner)
     vol = f(P).reshape(X.shape)
     v, fc, _, _ = marching_cubes(vol, 0.0, spacing=(h, h, h)); v += lo; fc = fc[:, ::-1].copy()
     e = h * .5
@@ -179,7 +182,7 @@ def build(lod_npz, with_hair=True):
     d = np.load(lod_npz); v, f, n = d['v'], d['f'], d['n']
     part, isarm, side = classify(v)
     if with_hair:
-        hv, hf, hn = hair_mesh(.006 if 'lod0' in lod_npz else .012)
+        hv, hf, hn = hair_mesh(.0045 if 'lod0' in lod_npz else .007)
         hp = np.full(len(hv), HAIR)
         f = np.vstack([f, hf + len(v)]); v = np.vstack([v, hv]); n = np.vstack([n, hn])
         part = np.concatenate([part, hp]); isarm = np.concatenate([isarm, np.zeros(len(hv), bool)])
